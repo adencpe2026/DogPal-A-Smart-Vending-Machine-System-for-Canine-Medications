@@ -1,6 +1,6 @@
 """
-DogPal is a smart vending machine system for canine medications developed by the Cool Pals Group, 
-Batch 2026 Computer Engineering (CPE) students. To support documentation, maintenance, and future development, 
+DogPal is a smart vending machine system for canine medications developed by the Cool Pals Group,
+Batch 2026 Computer Engineering (CPE) students. To support documentation, maintenance, and future development,
 the project's source codes were uploaded to a GitHub repository for future developers, researchers, and CPE students who may continue or enhance the system.
 """
 
@@ -623,7 +623,10 @@ class MedicineDispenserApp:
 
         self.setup_styles()
         self.create_main_layout()
-        self.start_camera()
+        # Start in Manual mode without opening the camera.
+        # On laptops, continuously reading the webcam while the camera panel is hidden
+        # can make OTC medicine buttons feel frozen or not clickable.
+        # The camera starts only when Image Scan preview is used.
         self.switch_mode('manual')
         self.log_event("SYSTEM", "Application started")
         self.process_arduino_events()
@@ -1675,6 +1678,8 @@ class MedicineDispenserApp:
             self.show_image_mode()
             self.video_label.config(image='', text="Camera Ready", fg="#7f8c8d")
         elif mode == 'manual':
+            # Stop hidden webcam polling so the OTC button grid stays responsive.
+            self.stop_camera()
             self.btn_mode_manual.configure(style='ModeActive.TButton')
             self.hide_camera_panel()
             self.show_manual_mode()
@@ -1727,13 +1732,15 @@ class MedicineDispenserApp:
         self.btn_detected_next.pack_forget()
 
     def start_camera_image(self):
+        if not self.camera_running or self.camera is None:
+            self.start_camera()
         self.preview_active = True
         self.btn_start_camera.config(state='disabled', text="Preview Active")
         self.btn_capture.config(state='normal')
 
     def capture_and_process_image(self):
-        if not self.camera_running:
-            return
+        if not self.camera_running or self.camera is None:
+            self.start_camera()
         if self.model is None:
             messagebox.showerror("Error", "YOLO model not loaded!\n\nCannot perform object detection.")
             return
@@ -1962,8 +1969,25 @@ class MedicineDispenserApp:
                      bg="#16213e", fg="#e74c3c").pack(expand=True)
             return
 
-        rows = 3
-        cols = math.ceil(len(meds) / rows)
+        # Keep the original OTC medicine card UI, but make it reliable on laptops.
+        # The old fixed 3-row x 4-column layout can overflow narrower laptop screens,
+        # leaving some OTC buttons hard to open/click. This keeps the same cards and
+        # button style while choosing a safer number of columns for the available width.
+        self.manual_container.update_idletasks()
+        available_width = self.manual_container.winfo_width()
+        if available_width <= 1:
+            available_width = self.right_frame.winfo_width()
+        if available_width <= 1:
+            available_width = self.root.winfo_screenwidth()
+
+        if available_width < 760:
+            cols = 2
+        elif available_width < 1050:
+            cols = 3
+        else:
+            cols = 4
+
+        rows = math.ceil(len(meds) / cols)
 
         grid = tk.Frame(self.manual_container, bg="#16213e")
         grid.pack(expand=True)
@@ -1973,27 +1997,31 @@ class MedicineDispenserApp:
         for r in range(rows):
             grid.grid_rowconfigure(r, weight=1, uniform="row")
 
-        idx = 0
-        for r in range(rows):
-            for c in range(cols):
-                if idx >= len(meds):
-                    break
-                med = meds[idx]
-                idx += 1
+        for idx, med in enumerate(meds):
+            r = idx // cols
+            c = idx % cols
 
-                card = tk.Frame(grid, bg="#0f3460", relief=tk.RAISED, borderwidth=1)
-                card.grid(row=r, column=c, padx=18, pady=14, sticky="nsew")
+            card = tk.Frame(grid, bg="#0f3460", relief=tk.RAISED, borderwidth=1)
+            card.grid(row=r, column=c, padx=18, pady=14, sticky="nsew")
 
-                btn = ttk.Button(
-                    card,
-                    text=med,
-                    style='Med.TButton',
-                    command=lambda m=med: self.show_quantity_popup(m),
-                    width=22
-                )
-                btn.pack(padx=18, pady=14, fill=tk.BOTH, expand=True)
+            btn = ttk.Button(
+                card,
+                text=med,
+                style='Med.TButton',
+                command=lambda m=med: self.show_quantity_popup(m),
+                width=22
+            )
+            btn.pack(padx=18, pady=14, fill=tk.BOTH, expand=True)
+
+            # Extra laptop/touchpad reliability: clicking anywhere on the medicine
+            # card opens the same confirmation popup as the button.
+            card.bind("<Button-1>", lambda event, m=med: self.show_quantity_popup(m))
+            btn.bind("<Return>", lambda event, m=med: self.show_quantity_popup(m))
 
     def start_camera(self):
+        if self.camera_running and self.camera is not None:
+            return
+
         self.camera_running = True
 
         if self.use_picamera:
@@ -2178,7 +2206,6 @@ class MedicineDispenserApp:
         info_rows = [
             ("Type", med_info["type"]),
             ("Form", med_info["form"]),
-            ("Slot", str(slot)),
             ("Unit Price", f"PHP {unit_price:,.2f}")
         ]
 
@@ -2208,7 +2235,7 @@ class MedicineDispenserApp:
 
         tk.Label(
             info_card,
-            text="Short Summary",
+            text="Description",
             font=('Segoe UI', fs(12), 'bold'),
             bg="#163b66",
             fg="#bdc3c7"
@@ -2425,6 +2452,11 @@ class MedicineDispenserApp:
         proceed_button.grid(row=0, column=2, padx=max(6, int(12 * scale)))
 
         popup.update_idletasks()
+        try:
+            popup.lift()
+            popup.focus_force()
+        except Exception:
+            pass
 
     def show_payment_popup(self, medicine, qty):
         if medicine in PRESCRIPTION_MEDS:
