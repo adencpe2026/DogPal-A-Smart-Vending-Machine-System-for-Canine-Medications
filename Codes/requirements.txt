@@ -1,0 +1,47 @@
+Dog Pal Medicine Dispenser with Hardware Integration
+Supports:
+- Picamera2 on Raspberry Pi
+- USB/Webcam on development machines
+- PCA9685 servo control for dispensing
+- YOLO object detection with prescription verification
+- 58mm thermal printer receipt printing via /dev/rfcomm0
+- Arduino serial payment integration
+- Door alarm monitoring from Arduino serial
+- Full-screen alarm lock screen with admin PIN and service mode
+- Latched alarm behavior: does not auto-clear when doors close
+
+UPDATED FEATURES:
+- Supports 20, 50, 100, 200, 500, 1000 bill values from Arduino
+- Keeps trip/alarm system logic unchanged
+- Adds IR drop detection from Arduino serial messages
+- Shows live dropped item count
+- Retries motor spin until expected quantity is confirmed dropped
+- Removes cancel button once enough payment is inserted
+- Allows overpayment to continue so money is not lost
+
+NEW IN THIS VERSION:
+- Supports 3 IR sensors from Arduino: IR1, IR2, IR3
+- Supports 4 main door switches on Arduino side while keeping the same
+  serial alarm messages:
+    - ALARM:ONE_OR_MORE_MAIN_SWITCH_OPEN
+    - MAIN_SWITCHES_CLOSED
+- Tracks blocked IR sensors safely using a set
+- Keeps DROP count logic compatible with Arduino DROP:<count>
+- Faster serial baud rate (115200) to match Arduino
+- Faster payment/drop polling in popup UI
+- Safer dispensing retry timing for fast packets
+
+UI UPDATE:
+- Larger confirm dispensing popup
+- Consistent medicine information panel for all medicines
+- Shows brand, type, form, short summary, slot, and price
+
+SERVICE MODE LOGS UPDATE:
+- Numpad is shown only for Admin PIN / alarm authorization
+- In Service Mode, numpad and Admin PIN box are hidden
+- In Service Mode, logs panel fully occupies the freed space
+- Enter Service Mode / Disarm Alarm buttons are hidden in Service Mode
+- Alarm sound stays off in Service Mode
+- Logs include timestamp + elapsed seconds since app start
+- Logs include Transaction, Alarm, Drop, and System events
+- Logs now include filter buttons: ALL / TRANSACTION / ALARM / DROP / SYSTEM
